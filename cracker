@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [ "$#" -lt 2 ]; then
+    echo "Wrong input!"
+    echo "$0 <filepath> <hash> [--debug]"
+    exit 1
+fi
+
+FILEPATH=$1
+HASH=$2
+FLAG=$3
+
+go build -o bin/program cmd/main.go
+
+if [ -n "$FLAG" ]; then
+    ./bin/program "$FILEPATH" "$HASH" "$FLAG"
+else
+    ./bin/program "$FILEPATH" "$HASH"
+fi
