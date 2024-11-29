@@ -32,7 +32,7 @@ git clone https://github.com/Dosik13/PasswordDestroyer.git
 ## 2. Start the program
 
 ```bash
-cracker <path_to_wordlist> <hash_to_crack> --debug
+go run cmd/main.go <path_to_wordlist> <hash_to_crack> --debug
 ```
 
 `debug` is an optional flag and enables debug logs
@@ -42,7 +42,7 @@ cracker <path_to_wordlist> <hash_to_crack> --debug
 Input:
 
 ```bash
-cracker passwords.txt 3fc0a7acf087f549ac2b266baf94b8b1
+go run cmd/main.go passwords.txt 3fc0a7acf087f549ac2b266baf94b8b1
 ```
 
 Output:

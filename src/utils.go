@@ -22,3 +22,12 @@ func ToKeccak256(password string) string {
 	k256Hash := k256.Hash([]byte(password))
 	return hex.EncodeToString(k256Hash[:])
 }
+
+func CheckHash(hash, password string, hashType HashType) bool {
+	switch hashType {
+	case MD5:
+		return hash == ToMD5(password)
+	default:
+		return hash == ToSha256(password) || hash == ToKeccak256(password)
+	}
+}

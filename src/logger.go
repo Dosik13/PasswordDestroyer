@@ -5,19 +5,15 @@ import (
 )
 
 func NewLogger(debug bool) (*zap.Logger, error) {
-	var logger *zap.Logger
-	var err error
+	cfg := zap.NewDevelopmentConfig()
 	if debug {
-		logger, err = zap.NewDevelopment()
-		if err != nil {
-			return nil, err
-		}
+		cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
 	} else {
-		logger, err = zap.NewProduction()
-		if err != nil {
-			return nil, err
-		}
+		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	}
+	logger, err := cfg.Build()
+	if err != nil {
+		return nil, err
 	}
 	return logger, nil
-
 }
