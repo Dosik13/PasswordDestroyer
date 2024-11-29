@@ -2,7 +2,6 @@ package main
 
 import (
 	"PasswordDestroyer/src"
-	"fmt"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 )
@@ -13,13 +12,13 @@ func main() {
 
 	logger, err := src.NewLogger(*debug)
 	if err != nil {
-		fmt.Println("Error initializing logger:", err)
+		logger.Error("Error initializing logger:", zap.Error(err))
 	}
 
 	defer logger.Sync()
 
 	if len(pflag.Args()) < 2 {
-		fmt.Println("Incorrect input! go run main.go <path_to_wordlist> <hash_to_crack> --debug")
+		logger.Error("Incorrect input! go run main.go <path_to_wordlist> <hash_to_crack> --debug")
 		return
 	}
 
