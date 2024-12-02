@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
-	"sync"
+	"time"
 )
 
 // const ErrorNotFound := errors.New("Not found")
@@ -19,10 +19,12 @@ const (
 	MD5
 )
 
+const Time = 500 * time.Millisecond
+
 type Hasherer interface {
 	getAllPasswordsFromFile(filePath string) error
-	findHash(done chan struct{}, hash, password string, wg *sync.WaitGroup, found chan<- string, hashType HashType, logger *zap.Logger)
-	startWorkers(done chan struct{}, hash string, found chan<- string, hashType HashType, wg *sync.WaitGroup)
+	findHash(done chan struct{}, hash, password string, found chan<- string, hashType HashType, logger *zap.Logger)
+	startWorkers(done chan struct{}, hash string, found chan<- string, hashType HashType)
 	Run(filePath, hash string) (bool, error)
 }
 
@@ -59,9 +61,7 @@ func (h *Hasher) getAllPasswordsFromFile(filePath string) error {
 	return nil
 }
 
-func (h *Hasher) findHash(done chan struct{}, hash, password string, wg *sync.WaitGroup, found chan<- string, hashType HashType, logger *zap.Logger) {
-	defer wg.Done()
-
+func (h *Hasher) findHash(done chan struct{}, hash, password string, found chan<- string, hashType HashType, logger *zap.Logger) {
 	select {
 	case <-done:
 		logger.Debug("Received done signal, stopping worker")
@@ -75,12 +75,11 @@ func (h *Hasher) findHash(done chan struct{}, hash, password string, wg *sync.Wa
 	}
 }
 
-func (h *Hasher) startWorkers(done chan struct{}, hash string, found chan<- string, hashType HashType, wg *sync.WaitGroup) {
+func (h *Hasher) startWorkers(done chan struct{}, hash string, found chan<- string, hashType HashType) {
 	h.Logger.Info("Starting workers", zap.Int("goroutines", len(h.Passwords)))
 
 	for _, password := range h.Passwords {
-		wg.Add(1)
-		go h.findHash(done, hash, password, wg, found, hashType, h.Logger)
+		go h.findHash(done, hash, password, found, hashType, h.Logger)
 	}
 }
 
@@ -92,9 +91,8 @@ func (h *Hasher) Run(filePath, hash string) (bool, error) {
 		return false, err
 	}
 
-	var wg sync.WaitGroup
-
-	found := make(chan string, 1)
+	ticker := time.NewTicker(Time)
+	found := make(chan string)
 	done := make(chan struct{})
 
 	var hashType HashType
@@ -105,22 +103,20 @@ func (h *Hasher) Run(filePath, hash string) (bool, error) {
 		hashType = Other
 	}
 
-	h.startWorkers(done, hash, found, hashType, &wg)
+	h.startWorkers(done, hash, found, hashType)
 
 	isFound := false
 
-	go func() {
-		select {
-		case password := <-found:
-			h.Logger.Info("Match found!", zap.String("password", password))
-			isFound = true
-			close(done)
-		case <-done:
-			h.Logger.Debug("Workers are being cancelled")
-		}
-	}()
+	select {
+	case password := <-found:
+		h.Logger.Info("Match found!", zap.String("password", password))
+		isFound = true
+		close(done)
+	case <-ticker.C:
+		h.Logger.Debug("Ticker expired, stopping workers")
+		close(done)
+	}
 
-	wg.Wait()
 	if !isFound {
 		return false, nil
 	}

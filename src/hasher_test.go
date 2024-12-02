@@ -3,8 +3,8 @@ package src
 import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"sync"
 	"testing"
+	"time"
 )
 
 func newTestLogger() *zap.Logger {
@@ -65,23 +65,19 @@ func TestFindHash(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			done := make(chan struct{})
-			found := make(chan string, 1)
-			var wg sync.WaitGroup
-
+			found := make(chan string)
 			if test.name == "Done signal" {
 				close(done)
 			}
 
-			wg.Add(1)
-			go hasher.findHash(done, test.hash, test.password, &wg, found, test.hashType, logger)
-			wg.Wait()
+			go hasher.findHash(done, test.hash, test.password, found, test.hashType, logger)
 
 			select {
 			case password := <-found:
 				if password != test.expected {
 					t.Errorf("Expected password '%s', got '%s'", test.expected, password)
 				}
-			default:
+			case <-time.After(1 * time.Second):
 				if test.expected != "" {
 					t.Errorf("Expected to find password, but found channel is empty")
 				}
@@ -93,29 +89,26 @@ func TestFindHash(t *testing.T) {
 func TestStartWorkers(t *testing.T) {
 	logger := newTestLogger()
 	hasher := NewHasher(logger)
+
 	hasher.(*Hasher).Passwords = []string{"pink", "dolphin", "amublance34", "Pelican123"}
+
 	done := make(chan struct{})
-	found := make(chan string, 1)
-	var wg sync.WaitGroup
+	found := make(chan string)
 
-	hasher.startWorkers(done, "fbc9e0b78a38aa356a29f1ee49f43ef045a8a4912f483f79b16d122b4b9ab2ea", found, Other, &wg)
-
-	wg.Wait()
+	hasher.startWorkers(done, "fbc9e0b78a38aa356a29f1ee49f43ef045a8a4912f483f79b16d122b4b9ab2ea", found, Other)
 
 	select {
 	case password := <-found:
 		if password != "amublance34" {
 			t.Errorf("Expected password 'amublance34', got '%s'", password)
 		}
-	default:
+	case <-time.After(1 * time.Second):
 		t.Error("Expected to find password, but found channel is empty")
 	}
 }
 
 func TestHasherRun(t *testing.T) {
-	// Set up a shared logger
 	logger := newTestLogger()
-
 	hasher := NewHasher(logger)
 
 	hasher.getAllPasswordsFromFile("passwords_test.txt")
